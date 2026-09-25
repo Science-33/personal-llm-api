@@ -23,6 +23,7 @@ Personal LLM API 是一款轻量级的 LLM 接口服务，与 [one-api](https://
 ## 特性
 
 - ✅️支持 `/v1/chat/completions`和`/chat/completions`的 OpenAI 接口规范。
+- ✅️支持 `/v1/models`和`/models`接口，获取所有可用模型列表。
 - ✅️支持火山云`web search`的`response`接口转换成普通的`chat`接口方式，易于接入`Cherry studio`等客户端。
 - ✅️支持`Nano Banana Pro`。
 - ✅️支持大部分的 LLM 服务提供商，并且支持自定义模型默认参数。
@@ -176,6 +177,30 @@ stark
 
 ![](./static/images/llm.png)
 
+
+## Models 接口
+支持`/models`或`v1/models`接口，返回所有可用模型的模型名称列表（OpenAI 规范格式），与其他接口一样需要携带 API Key。
+
+请求示例：
+```bash
+curl http://127.0.0.1:2321/v1/models \
+  -H "Authorization: Bearer sk-你的API密钥"
+```
+
+返回示例：
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "deepseek-v3.2",
+      "object": "model",
+      "created": 1735689600,
+      "owned_by": "OpenRouter"
+    }
+  ]
+}
+```
 
 ## Chat Completion 接口
 支持`/chat/completions`或`v1/chat/completions`对话补全接口，兼容性更强。
