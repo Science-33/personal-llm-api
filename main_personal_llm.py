@@ -1,6 +1,7 @@
 import os
 import asyncio
 import json
+import time
 import traceback
 import base64
 
@@ -214,6 +215,30 @@ async def chat_completions(request: Request):
             logger.error(traceback.format_exc())
             raise HTTPException(status_code=500, detail=str(e))
         return answer
+
+
+# 获取可用模型列表
+@app.get('/v1/models')
+@app.get('/models')
+async def list_models(request: Request):
+    # 校验key
+    api_key = request.headers.get('Authorization')
+    await check_api_key(api_key)
+
+    # 查询所有启用中的模型
+    sql = 'select distinct model_name, provider_english_name from llm_model where status=1 and is_delete=0 order by model_name asc'
+    result = await db_client.select(sql)
+
+    data = []
+    for item in result:
+        data.append({
+            'id': item['model_name'],
+            'object': 'model',
+            'created': int(time.time()),
+            'owned_by': item['provider_english_name']
+        })
+
+    return {'object': 'list', 'data': data}
 
 
 async def img_params_process(img_params: list):
