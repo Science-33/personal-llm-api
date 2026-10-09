@@ -13,7 +13,7 @@ router = APIRouter(prefix="/backend/chat", tags=["chat"])
 async def chat_history(request: Request, params: PaginationParams = Depends(get_page_params)):
     # 分页查询
 
-    sql = f"""SELECT * FROM llm_chat_history WHERE update_time IS NOT NULL ORDER BY id DESC LIMIT {(params.page - 1) * params.perPage},{params.perPage}"""
+    sql = f"""SELECT * FROM llm_chat_history ORDER BY id DESC LIMIT {(params.page - 1) * params.perPage},{params.perPage}"""
 
     data_list = await db_client.select(sql)
 
@@ -23,20 +23,31 @@ async def chat_history(request: Request, params: PaginationParams = Depends(get_
         i += 1
         res.append(item)
 
-        item['prompt'] = item['prompt'][:40] + '...'
+        item['prompt'] = (item['prompt'] or '')[:40] + '...'
         item['id'] = i + 1 + (params.page - 1) * params.perPage
-        item['total_price'] = item['input_price'] + item['output_price']
-        item['input_price'] = "{0:.15f}".format(item['input_price']).rstrip('0').rstrip('.')
-        item['output_price'] = "{0:.15f}".format(item['output_price']).rstrip('0').rstrip('.')
 
-        item['prompt_tokens'] = f"{item['prompt_tokens']} ⋙ {item['completion_tokens']}"
-        item['completion_tokens'] = f"{item['completion_tokens']} / {item['output_price']}元"
-        item['total_price'] = f"{item['total_price']:.6g} 元"
-        item['context'] = json.loads(item['context'])
-        item['context'].append({'role': 'assistant', 'content': item['answer']})
-        if item['update_time'] and item['create_time']:
-            item['duration'] = str(int((item['update_time'] - item['create_time']).total_seconds())) + ' s'
+        if item['update_time'] is None:
+            # 请求未完成（上游报错或流式被中断），只记录了 prompt 和 context
+            item['status'] = '未完成'
+            item['duration'] = '-'
+            item['total_price'] = '-'
+            item['prompt_tokens'] = '-'
+            item['completion_tokens'] = '-'
+        else:
+            item['status'] = '成功'
+            item['total_price'] = (item['input_price'] or 0) + (item['output_price'] or 0)
+            item['input_price'] = "{0:.15f}".format(item['input_price'] or 0).rstrip('0').rstrip('.')
+            item['output_price'] = "{0:.15f}".format(item['output_price'] or 0).rstrip('0').rstrip('.')
+
+            item['prompt_tokens'] = f"{item['prompt_tokens'] or 0} ⋙ {item['completion_tokens'] or 0}"
+            item['completion_tokens'] = f"{item['completion_tokens'] or 0} / {item['output_price']}元"
+            item['total_price'] = f"{item['total_price']:.6g} 元"
+            if item['create_time']:
+                item['duration'] = str(int((item['update_time'] - item['create_time']).total_seconds())) + ' s'
         item['create_time'] = item['create_time'].strftime('%Y-%m-%d %H:%M:%S')
+
+        item['context'] = json.loads(item['context'])
+        item['context'].append({'role': 'assistant', 'content': item['answer'] or '（该请求未完成，未收到模型回复）'})
 
         for context_item in item['context']:
             if 'content' in context_item and context_item['content']:
@@ -59,7 +70,7 @@ async def chat_history(request: Request, params: PaginationParams = Depends(get_
                 context_item['role'] = 'function'
                 context_item['content'] = json.dumps(context_item['function'], ensure_ascii=False, indent=4)
 
-    sql = 'select count(1) as cou from llm_chat_history where update_time is not null'
+    sql = 'select count(1) as cou from llm_chat_history'
     total = await db_client.select(sql)
     total = total[0]['cou']
 

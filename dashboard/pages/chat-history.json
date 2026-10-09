@@ -13,6 +13,10 @@
                 "label": "模型"
             },
             {
+                "name": "status",
+                "label": "状态"
+            },
+            {
                 "name": "prompt",
                 "label": "prompt",
                 "textOverflow": "ellipsis"
