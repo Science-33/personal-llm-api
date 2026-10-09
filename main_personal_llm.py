@@ -28,7 +28,7 @@ from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic_core import ValidationError
 
-from init import init_db, init_models, get_model
+from init import init_db, init_models, get_model, migrate_db
 from config import settings
 from utils.db_client import db_client
 from backend.backend_api import backend_router
@@ -40,6 +40,8 @@ from backend.chat import router as chat_router
 async def init_app():
     # 初始化数据库
     await init_db()
+    # 迁移数据库字段
+    await migrate_db()
     # 初始化模型
     await init_models()
 

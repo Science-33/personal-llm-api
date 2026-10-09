@@ -86,6 +86,34 @@ async def init_db():
         await init_sqlite()
 
 
+# 已有数据库的字段迁移（字段已存在时会报错，直接忽略即可）
+MIGRATE_SQLS = [
+    'ALTER TABLE llm_chat_history ADD COLUMN cache_hit_tokens INT default 0',
+    'ALTER TABLE llm_chat_history ADD COLUMN cache_hit_price FLOAT default 0',
+    'ALTER TABLE llm_model ADD COLUMN cache_input_unit_price FLOAT null',
+]
+
+async def migrate_db():
+
+    if settings.USE_DB == 'mysql':
+        from utils.mysql_client import MysqlClient
+        db_client = MysqlClient(settings.MYSQL_HOST, settings.MYSQL_PORT, settings.MYSQL_USER, settings.MYSQL_PASSWORD, settings.MYSQL_DATABASE)
+    else:
+        from utils.sqlite_client import SqliteClient
+        db_client = SqliteClient(settings.SQLITE_PATH)
+
+    for sql in MIGRATE_SQLS:
+        try:
+            await db_client.execute(sql)
+        except Exception as e:
+            if 'duplicate column' not in str(e).lower():
+                logger.warning(f'数据库迁移执行失败: {sql}, 错误: {e}')
+
+    if settings.USE_DB == 'mysql':
+        db_client.pool.close()
+        await db_client.pool.wait_closed()
+
+
 MODELS_OBJ = {'models_dict': {}, 'models_dict_num': {}}
 
 # 初始化模型
@@ -118,6 +146,7 @@ async def init_models():
         params['model_name'] = model['model_name']
         params['input_unit_price'] = model['input_unit_price']
         params['output_unit_price'] = model['output_unit_price']
+        params['cache_input_unit_price'] = model['cache_input_unit_price']
         params['default_params'] = model['default_params']
 
         if 'ark.cn-beijing.volces.com' in model['base_url']:
@@ -182,7 +211,8 @@ async def init_models():
         model_name=settings.FREE_MODEL_MODEL,
         input_unit_price=0,
         output_unit_price=0,
-        default_params=''
+        default_params='',
+        cache_input_unit_price=0
     )
     settings.set_free_model(free_model)
 

@@ -14,7 +14,7 @@ class QwenLLMService(LLMService):
     # 获取usage
     async def get_usage(self, response, params, answer):
         if response['usage']:
-            return {'completion_tokens': response['usage']['completion_tokens'], 'prompt_tokens': response['usage']['prompt_tokens'], 'total_tokens': response['usage']['total_tokens']}
+            return await super().get_usage(response, params, answer)
         else:
             query = [msg['content'] for msg in params['messages'] if 'content' in msg]
 

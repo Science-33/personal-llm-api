@@ -245,6 +245,18 @@
                             "suffix": "RMB"
                         },
                         {
+                            "type": "input-text",
+                            "name": "cache_input_unit_price",
+                            "label": "缓存命中单价",
+                            "prefix": "￥",
+                            "suffix": "RMB",
+                            "labelRemark": {
+                                "type": "remark",
+                                "title": "提示",
+                                "content": "缓存命中部分的输入token单价，计费单位与输入单价相同，留空表示缓存部分按输入单价计费"
+                            }
+                        },
+                        {
                             "type": "textarea",
                             "name": "default_params",
                             "labelRemark": {
@@ -351,6 +363,11 @@
                     "remark": "如果是视觉模型，单价为每张图片的单价"
                 },
                 {
+                    "name": "cache_input_unit_price_thousand",
+                    "label": "缓存命中单价/千token",
+                    "remark": "缓存命中部分的输入token单价，留空表示按输入单价计费"
+                },
+                {
                     "name": "create_time",
                     "label": "创建时间"
                 },
@@ -451,6 +468,19 @@
                                             "suffix": "RMB",
                                             "required": true,
                                             "value": "${IF(billing_unit == 'per_thousand_tokens', output_unit_price_thousand, output_unit_price_million)}"
+                                        },
+                                        {
+                                            "type": "input-text",
+                                            "name": "cache_input_unit_price",
+                                            "label": "缓存命中单价",
+                                            "prefix": "￥",
+                                            "suffix": "RMB",
+                                            "value": "${IF(billing_unit == 'per_thousand_tokens', cache_input_unit_price_thousand, cache_input_unit_price_million)}",
+                                            "labelRemark": {
+                                                "type": "remark",
+                                                "title": "提示",
+                                                "content": "缓存命中部分的输入token单价，计费单位与输入单价相同，留空表示缓存部分按输入单价计费"
+                                            }
                                         },
                                         {
                                             "type": "textarea",

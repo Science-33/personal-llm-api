@@ -39,6 +39,7 @@ Personal LLM API 是一款轻量级的 LLM 接口服务，与 [one-api](https://
 
 
 ## ChangeLog
+- 2026-10-09: v1.4 新增缓存命中统计和缓存命中价格统计，支持按时间、按供应商查看；模型支持配置缓存命中单价
 - 2026-02-04: v1.3 新增 Aihubmix 模型的支持，填写 app-code 码可优惠10%，详见应用：[Aihubmix 模型](https://aihubmix.com/appstore)
 - 2026-01-11: v1.2 新增 Seedream 视觉模型的支持，详见应用：[Nano Banana进行AI绘画中文总是糊？一招可重新渲染，清晰到可直接汇报](http://era.dx3906.info/#/blog-detail?blog_id=79858911101006)
 - 2025-12-31: v1.1 新增自定义模型默认参数功能

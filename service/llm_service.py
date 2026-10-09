@@ -12,7 +12,7 @@ from config import settings
 # 供应商模型接口基类
 class LLMService(object):
 
-    def __init__(self, id, base_url, model_id, api_key, provider_english_name, model_name, input_unit_price, output_unit_price, default_params):
+    def __init__(self, id, base_url, model_id, api_key, provider_english_name, model_name, input_unit_price, output_unit_price, default_params, cache_input_unit_price=0):
         self.id = id
         self.base_url_response = base_url + '/responses' if base_url[-1] != '/' else base_url + 'responses'
         self.chat_url = base_url + '/chat/completions' if base_url[-1] != '/' else base_url + 'chat/completions'
@@ -23,6 +23,8 @@ class LLMService(object):
         self.provider_english_name = provider_english_name
         self.input_unit_price = input_unit_price
         self.output_unit_price = output_unit_price
+        # 缓存命中部分的输入单价，0表示未配置，未配置时缓存部分按输入单价计费
+        self.cache_input_unit_price = cache_input_unit_price or 0
         self.default_params = json.loads(default_params) if default_params else {}
 
         self.headers = {
@@ -70,6 +72,19 @@ class LLMService(object):
         await db_client.insert('llm_chat_history', history)
         return history
 
+    @staticmethod
+    def get_cache_hit_tokens(usage):
+        # 兼容各供应商的缓存命中字段：OpenAI规范 / DeepSeek / 火山云response接口
+        if not usage:
+            return 0
+        if isinstance(usage.get('prompt_tokens_details'), dict):
+            return int(usage['prompt_tokens_details'].get('cached_tokens') or 0)
+        if 'prompt_cache_hit_tokens' in usage:
+            return int(usage.get('prompt_cache_hit_tokens') or 0)
+        if isinstance(usage.get('input_tokens_details'), dict):
+            return int(usage['input_tokens_details'].get('cached_tokens') or 0)
+        return 0
+
     async def update_tokens(self, history, response):
         # 更新tokens
         reasoning_content = response['choices'][0]['message'].get('reasoning_content', '')
@@ -80,13 +95,21 @@ class LLMService(object):
 
         update_data = {}
         if response['usage']:
-            update_data['completion_tokens'] = response['usage']['completion_tokens']
-            update_data['prompt_tokens'] = response['usage']['prompt_tokens']
-            update_data['input_price'] = self.input_unit_price * (response['usage']['prompt_tokens'] / 1000)
-            update_data['output_price'] = self.output_unit_price * (response['usage']['completion_tokens'] / 1000)
+            prompt_tokens = response['usage']['prompt_tokens']
+            completion_tokens = response['usage']['completion_tokens']
+            cache_hit_tokens = min(self.get_cache_hit_tokens(response['usage']), prompt_tokens)
+            cache_unit_price = self.cache_input_unit_price if self.cache_input_unit_price else self.input_unit_price
+            update_data['completion_tokens'] = completion_tokens
+            update_data['prompt_tokens'] = prompt_tokens
+            update_data['cache_hit_tokens'] = cache_hit_tokens
+            update_data['cache_hit_price'] = cache_unit_price * (cache_hit_tokens / 1000)
+            update_data['input_price'] = self.input_unit_price * ((prompt_tokens - cache_hit_tokens) / 1000) + cache_unit_price * (cache_hit_tokens / 1000)
+            update_data['output_price'] = self.output_unit_price * (completion_tokens / 1000)
         else:
             update_data['completion_tokens'] = 0
             update_data['prompt_tokens'] = 0
+            update_data['cache_hit_tokens'] = 0
+            update_data['cache_hit_price'] = 0
             update_data['input_price'] = 0
             update_data['output_price'] = 0
 
@@ -318,7 +341,10 @@ class LLMService(object):
         if not usage:
             usage = await self.get_usage({'usage': usage}, params, f"{''.join(reasoning_content)}\n{''.join(content)}")
         else:
+            input_tokens_details = usage.get('input_tokens_details') or {}
             usage = {'completion_tokens': usage['output_tokens'], 'prompt_tokens': usage['input_tokens'], 'total_tokens': usage['total_tokens']}
+            if input_tokens_details.get('cached_tokens'):
+                usage['prompt_tokens_details'] = {'cached_tokens': input_tokens_details['cached_tokens']}
 
         # finishe
         templace = {"choices": [{"delta": {"content": "", "role": "assistant"}, "index": 0, "finish_reason": 'stop'}],
@@ -346,7 +372,12 @@ class LLMService(object):
     # 获取usage
     async def get_usage(self, response, params, answer):
         if response['usage']:
-            return {'completion_tokens': response['usage']['completion_tokens'], 'prompt_tokens': response['usage']['prompt_tokens'], 'total_tokens': response['usage']['total_tokens']}
+            usage = {'completion_tokens': response['usage']['completion_tokens'], 'prompt_tokens': response['usage']['prompt_tokens'], 'total_tokens': response['usage']['total_tokens']}
+            # 保留缓存命中信息，用于缓存命中统计
+            cache_hit_tokens = self.get_cache_hit_tokens(response['usage'])
+            if cache_hit_tokens:
+                usage['prompt_tokens_details'] = {'cached_tokens': cache_hit_tokens}
+            return usage
         else:
             return {'completion_tokens': 0, 'prompt_tokens': 0, 'total_tokens': 0}
 

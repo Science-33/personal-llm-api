@@ -132,7 +132,21 @@ class ModelBase(BaseModel):
     billing_unit: str
     input_unit_price: Union[str, int, float]
     output_unit_price: Union[str, int, float]
+    cache_input_unit_price: Optional[Union[str, int, float]] = None
     default_params: Optional[str] = None
+
+    @field_validator('cache_input_unit_price')
+    def validate_cache_input_unit_price(cls, value):
+        # 缓存命中单价可选，留空表示缓存部分按输入单价计费
+        if value is None or value == '':
+            return 0
+        if isinstance(value, int) or isinstance(value, float):
+            value = str(value)
+        try:
+            float(value)
+        except:
+            raise ValueError('缓存命中单价必须为数字')
+        return float(value)
 
     @field_validator('input_unit_price')
     def validate_input_unit_price(cls, value):
@@ -186,10 +200,12 @@ async def model_create(request: Request, params: ModelBase):
     data['billing_unit'] = params.billing_unit
     data['input_unit_price'] = params.input_unit_price
     data['output_unit_price'] = params.output_unit_price
+    data['cache_input_unit_price'] = params.cache_input_unit_price
     # 统一到千token
     if data['billing_unit'] == 'per_million_tokens':
         data['input_unit_price'] /= 1000
         data['output_unit_price'] /= 1000
+        data['cache_input_unit_price'] /= 1000
 
     data['default_params'] = params.default_params
     data['status'] = 1
@@ -218,6 +234,10 @@ async def model_list(request: Request, params: PaginationParams = Depends(get_pa
         item['output_unit_price_thousand'] = item['output_unit_price']
         item['input_unit_price_million'] = item['input_unit_price'] * 1000
         item['output_unit_price_million'] = item['output_unit_price'] * 1000
+        # 缓存命中单价，0表示未配置，前端展示为空
+        cache_input_unit_price = item['cache_input_unit_price'] or 0
+        item['cache_input_unit_price_thousand'] = cache_input_unit_price if cache_input_unit_price else ''
+        item['cache_input_unit_price_million'] = cache_input_unit_price * 1000 if cache_input_unit_price else ''
         if item['billing_unit'] == 'per_million_tokens':
             item['input_unit_price'] *= 1000
             item['output_unit_price'] *= 1000
@@ -245,6 +265,7 @@ async def model_update(request: Request, params: ModelBase):
     if params.billing_unit == 'per_million_tokens':
         params.input_unit_price /= 1000
         params.output_unit_price /= 1000
+        params.cache_input_unit_price /= 1000
 
     data = {}
     data['provider_english_name'] = params.provider_english_name
@@ -253,6 +274,7 @@ async def model_update(request: Request, params: ModelBase):
     data['billing_unit'] = params.billing_unit
     data['input_unit_price'] = params.input_unit_price
     data['output_unit_price'] = params.output_unit_price
+    data['cache_input_unit_price'] = params.cache_input_unit_price
     data['default_params'] = params.default_params
     data['status'] = status
     data['update_time'] = current_timestamp

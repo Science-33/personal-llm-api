@@ -28,7 +28,12 @@ class OpenRouterLLMService(LLMService):
                     image_tokens = response['usage']['completion_tokens_details']['image_tokens']
                     completion_tokens += image_tokens * rate
 
-            return {'completion_tokens': completion_tokens, 'prompt_tokens': response['usage']['prompt_tokens'], 'total_tokens': response['usage']['prompt_tokens'] + completion_tokens}
+            usage = {'completion_tokens': completion_tokens, 'prompt_tokens': response['usage']['prompt_tokens'], 'total_tokens': response['usage']['prompt_tokens'] + completion_tokens}
+            # 保留缓存命中信息，用于缓存命中统计
+            cache_hit_tokens = self.get_cache_hit_tokens(response['usage'])
+            if cache_hit_tokens:
+                usage['prompt_tokens_details'] = {'cached_tokens': cache_hit_tokens}
+            return usage
         else:
             payload = {
                 "id": params['id']
