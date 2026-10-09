@@ -2,7 +2,27 @@
     "type": "page",
     "body": {
         "type": "crud",
+        "name": "chatHistoryCrud",
         "api": "/backend/chat/chat-history",
+        "headerToolbar": [
+            "bulkActions",
+            {
+                "type": "button",
+                "label": "清空历史数据",
+                "level": "danger",
+                "actionType": "ajax",
+                "confirmText": "确定要清空所有 LLM 请求数据吗？包括对话记录和使用量统计，清空后不可恢复！",
+                "api": {
+                    "method": "post",
+                    "url": "/backend/chat/chat-history/clear"
+                },
+                "reload": "chatHistoryCrud"
+            },
+            {
+                "type": "pagination",
+                "align": "right"
+            }
+        ],
         "columns": [
             {
                 "name": "id",

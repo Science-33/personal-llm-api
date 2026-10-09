@@ -77,3 +77,17 @@ async def chat_history(request: Request, params: PaginationParams = Depends(get_
     data = {'status':0, 'msg':'', 'data':{'count':total, 'rows':res}}
     return data
 
+
+@router.post("/chat-history/clear")
+@require_auth
+async def chat_history_clear(request: Request):
+    # 先统计条数，用于返回清空数量
+    sql = 'select count(1) as cou from llm_chat_history'
+    total = await db_client.select(sql)
+    total = total[0]['cou']
+
+    if total:
+        await db_client.execute('DELETE FROM llm_chat_history')
+
+    return {"status": 0, "msg": f"已清空 {total} 条请求数据", "data": {}}
+
