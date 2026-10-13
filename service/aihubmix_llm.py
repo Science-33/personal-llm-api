@@ -2,9 +2,6 @@ import json
 import os
 
 import httpx
-from PIL import Image
-from google import genai
-from google.genai import types
 
 from service.llm_service import LLMService
 from utils.logger import Logger
@@ -50,6 +47,11 @@ class AihubmixLLMService(LLMService):
 
     # gemini_3_pro_image_preview 模型特殊处理
     async def gemini_3_pro_image_preview(self, params):
+        # 惰性导入，避免启动时加载 google-genai（约 97MB 内存）
+        from PIL import Image
+        from google import genai
+        from google.genai import types
+
         # 转成google api参数
         contents = []
         for message in params['messages']:
