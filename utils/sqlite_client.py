@@ -3,7 +3,6 @@ import sys
 import asyncio
 from datetime import datetime
 
-import pandas as pd
 import aiosqlite
 from config import settings
 
@@ -54,7 +53,8 @@ class SqliteClient(object):
 
     # data 可以是 DataFrame 或 list of dict
     async def insert(self, table_name, data):
-        if isinstance(data, pd.DataFrame):
+        # 鸭子类型判断 DataFrame，避免引入 pandas 依赖
+        if hasattr(data, 'to_dict') and hasattr(data, 'columns'):
             if len(data) == 0:
                 return None
             data = data.to_dict(orient='records')
